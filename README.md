@@ -53,5 +53,4 @@ process.on('SIGTERM', function () {
         });     
     }, 2000);
 });
-
 ```

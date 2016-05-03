@@ -52,7 +52,7 @@ describe("readyness", function() {
 
 		it('returns the status', function(done) {
 			readyness.setStatus(200);
-			readyness.route({}, {setStatus:function(code) {
+			readyness.route({}, {sendStatus:function(code) {
 				assert.equal(code, 200);
 				return this;
 			}, end: function() { done(); }});
@@ -60,7 +60,7 @@ describe("readyness", function() {
 
 		it('returns the status', function(done) {
 			readyness.setStatus(500);
-			readyness.route({}, {setStatus:function(code) {
+			readyness.route({}, {sendStatus:function(code) {
 				assert.equal(code, 500);
 				return this;
 			}, end: function() { done(); }});

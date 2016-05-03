@@ -15,7 +15,7 @@ function getStatus() {
 }
 
 function route(req, res) {
-	res.setStatus(status).end();
+	res.sendStatus(status).end();
 }
 
 module.exports = {
