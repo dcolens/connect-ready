@@ -1,0 +1,30 @@
+{
+  "name": "connect-ready",
+  "version": "1.0.0",
+  "description": "express route that indicates whether a service is ready or not",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha",
+    "cover": "istanbul cover node_modules/mocha/bin/_mocha -- test/*.js",
+    "lint": "jshint -c .jshintrc --exclude ./node_modules ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dcolens/connect-ready.git"
+  },
+  "keywords": [
+    "connect",
+    "express",
+    "ready"
+  ],
+  "author": "Didier Colens <dcolens@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/dcolens/connect-ready/issues"
+  },
+  "homepage": "https://github.com/dcolens/connect-ready#readme",
+  "devDependencies": {
+    "istanbul": "^0.4.3",
+    "mocha": "^2.4.5"
+  }
+}
