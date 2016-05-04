@@ -25,6 +25,7 @@
   "homepage": "https://github.com/dcolens/connect-ready#readme",
   "devDependencies": {
     "istanbul": "^0.4.3",
-    "mocha": "^2.4.5"
+    "mocha": "^2.4.5",
+    "toobusy-js": "^0.5.0"
   }
 }
