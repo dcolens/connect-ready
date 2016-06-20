@@ -113,4 +113,67 @@ describe("ready", function() {
 			}, 0);
 		});		
 	});
+
+	describe('shutdown', function() {
+		it('no signal', function(done) {
+			ready.shutdown(undefined, undefined, done, '/tmp/termination-log', undefined);
+		});
+		it('no signal with logger', function(done) {
+			ready.shutdown(undefined, undefined, function() {}, '/tmp/termination-log', {info:function(msg) {
+				assert.equal(msg, 'shutdown');
+				done();
+			}});
+		});		
+		it('while stoping already', function(done) {
+			ready.shutdown(undefined, 
+				undefined, 
+				function() {
+					done(new Error('should not be called'));
+					clearTimeout(timer);
+				}, 
+				'/tmp/termination-log', 
+				undefined
+			);
+			var timer = setTimeout(function() {
+				done();
+			}, 200);
+		});
+
+		it('signal', function(done) {
+			//reload the module to ensure stopping is reset to false
+			delete require.cache[require.resolve('../index.js')];
+			ready = require('../index.js');
+			ready.shutdown(
+				'SIGTERM', 
+				new Error('test'), 
+				function(status) {
+					assert.equal(status, 1);
+					done();
+				}, 
+				'/tmp/termination-log', 
+				undefined
+			);
+		});
+		it('signal and logger', function(done) {
+			//reload the module to ensure stopping is reset to false
+			delete require.cache[require.resolve('../index.js')];
+			ready = require('../index.js');
+			ready.shutdown(
+				'SIGTERM', 
+				new Error('test'), 
+				function() { }, 
+				'/tmp/termination-log', 
+				{	fatal:function(msg) {
+						done();
+					}
+				}
+			);
+		});	
+
+		it('no signal', function(done) {
+			delete require.cache[require.resolve('../index.js')];
+			ready = require('../index.js');
+			ready.shutdown(undefined, undefined, done, '/not a valid path/termination-log', undefined);
+		});			
+	});
 });

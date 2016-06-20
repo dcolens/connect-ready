@@ -1,6 +1,9 @@
 'use strict';
+var fs = require('fs');
+
 var status = 500;
 var toobusy = false;
+var stopping = false;
 
 function setStatus(code) {
 	if (!Number.isInteger(code) || (code<1) || (code>999)) {
@@ -36,9 +39,29 @@ function enableTooBusy(lag) {
  	toobusy.maxLag(lag);
 }
 
+function shutdown(signal, error, cb, terminationFile, logger) {
+	status = 503;
+	var reason;
+	if (error) {
+		if (logger && logger.fatal) { logger.fatal({GELF:true, signal: signal, stack: error.stack}, error.message); }
+		reason = signal + '\n' + error.message + '\n' + error.stack;
+	} else {
+		if (logger && logger.info) { logger.info('shutdown'); }
+		reason = shutdown;
+	}
+	if (stopping) { return; }
+	stopping = true;
+
+	fs.writeFile(terminationFile, reason, function(err) {
+		if (err) { console.error(err); }
+		cb(signal ? 1 : 0);
+	});
+}
+
 module.exports = {
 	setStatus: setStatus,
 	getStatus: getStatus,
 	route: route,
+	shutdown: shutdown,
 	enableTooBusy: enableTooBusy
 };
