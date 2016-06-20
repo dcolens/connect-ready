@@ -46,7 +46,7 @@ function shutdown(signal, error, cb, terminationFile, logger) {
 		if (logger && logger.fatal) { logger.fatal({GELF:true, signal: signal, stack: error.stack}, error.message); }
 		reason = signal + '\n' + error.message + '\n' + error.stack;
 	} else {
-		if (logger && logger.info) { logger.info('shutdown'); }
+		if (logger && logger.info) { logger.info({GELF:true, signal:signal}, 'shutdown'); }
 		reason = shutdown;
 	}
 	if (stopping) { return; }

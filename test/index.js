@@ -119,7 +119,7 @@ describe("ready", function() {
 			ready.shutdown(undefined, undefined, done, '/tmp/termination-log', undefined);
 		});
 		it('no signal with logger', function(done) {
-			ready.shutdown(undefined, undefined, function() {}, '/tmp/termination-log', {info:function(msg) {
+			ready.shutdown(undefined, undefined, function() {}, '/tmp/termination-log', {info:function(gelf, msg) {
 				assert.equal(msg, 'shutdown');
 				done();
 			}});
@@ -154,6 +154,23 @@ describe("ready", function() {
 				undefined
 			);
 		});
+
+		it('signal no error', function(done) {
+			//reload the module to ensure stopping is reset to false
+			delete require.cache[require.resolve('../index.js')];
+			ready = require('../index.js');
+			ready.shutdown(
+				'SIGTERM', 
+				undefined, 
+				function(status) {
+					assert.equal(status, 1);
+					done();
+				}, 
+				'/tmp/termination-log', 
+				undefined
+			);
+		});
+
 		it('signal and logger', function(done) {
 			//reload the module to ensure stopping is reset to false
 			delete require.cache[require.resolve('../index.js')];
@@ -163,7 +180,8 @@ describe("ready", function() {
 				new Error('test'), 
 				function() { }, 
 				'/tmp/termination-log', 
-				{	fatal:function(msg) {
+				{	fatal:function(gelf, msg) {
+						assert.equal(msg, 'test');
 						done();
 					}
 				}
