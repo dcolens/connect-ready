@@ -59,11 +59,13 @@ process.on('SIGTERM', function () {
 
 Another use of the readinessProbe can be to indicate if the server is too busy, connect-ready can use the [toobusy-js](https://github.com/STRML/node-toobusy) module to indicate whether the server is too busy and deflect load to another pod.
 
+**The toobusy-js module should be installed to use this functionality, it is not bundled in connect-ready.**
+
 ### Usage
 
-1) npm install toobusy-js
-2) enable toobusy in connect-ready:
-  ```javascript
-  ready.enableTooBusy(70)
-  ```
-  Where 70 is the lag as defined in [toobusy-js](https://github.com/STRML/node-toobusy)
+   1. npm install toobusy-js 
+   2. enable toobusy in connect-ready:
+    ```javascript
+    ready.enableTooBusy(70)
+    ```
+    Where 70 is the lag as defined in [toobusy-js](https://github.com/STRML/node-toobusy)
