@@ -26,6 +26,9 @@
   "devDependencies": {
     "istanbul": "^0.4.3",
     "mocha": "^2.4.5",
-    "toobusy-js": "^0.5.0"
+    "toobusy-js": "^0.5.1"
+  },
+  "optionalDependencies": {
+    "toobusy-js": "^0.5.1"
   }
 }

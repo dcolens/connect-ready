@@ -29,6 +29,11 @@ var server = http.createServer(app);
 
 app.get('/ready', ready.route);
 
+/**
+ * adds a `Connection: close` to all responses stopping.
+ */
+app.use(ready.gracefulShutdownKeepaliveConnections);
+
 server.listen(3000, function () { 
     ready.setStatus(204);
   console.log('Example app listening on port 3000!');

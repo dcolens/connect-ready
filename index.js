@@ -18,12 +18,25 @@ function getStatus() {
 	return status;
 }
 
+/**
+ * returns 503 if server is toobusy, status (as defined by setStatus) otherwise.
+ */
 function route(req, res) {
 	if (toobusy && toobusy()) {
 		res.sendStatus(503).end();
 	} else {
 		res.sendStatus(status).end();
 	}
+}
+
+/**
+ * adds a `Connection: close` to all responses if app.get('stopping') is true.
+ */
+function gracefulShutdownKeepaliveConnections(req, res, next) {
+	if (stopping === true) {
+		res.set('Connection', 'close');
+	}
+	next();
 }
 
 function enableTooBusy(lag) {
@@ -39,6 +52,11 @@ function enableTooBusy(lag) {
  	toobusy.maxLag(lag);
 }
 
+/**
+ * - logs shutdown to graylog (if log4js logger provided).
+ * - sets `stopping` to true.
+ * - dumps error in terminationFile if provided.
+ */
 function shutdown(signal, error, cb, terminationFile, logger) {
 	status = 503;
 	var reason;
@@ -49,13 +67,23 @@ function shutdown(signal, error, cb, terminationFile, logger) {
 		if (logger && logger.info) { logger.info({GELF:true, signal:signal}, 'shutdown'); }
 		reason = shutdown;
 	}
-	if (stopping) { return; }
+	if (stopping === true) { return; }
 	stopping = true;
 
-	fs.writeFile(terminationFile, reason, function(err) {
-		if (err) { console.error(err); }
-		cb(signal ? 1 : 0);
-	});
+	function callback() {
+		if (cb) {
+			return cb(signal ? 1 : 0);
+		}
+	}
+	
+	if (terminationFile) {
+		fs.writeFile(terminationFile, reason, function(err) {
+			if (err) { console.error(err); }
+			callback();
+		});
+	} else {
+		callback();
+	}
 }
 
 module.exports = {
@@ -63,5 +91,6 @@ module.exports = {
 	getStatus: getStatus,
 	route: route,
 	shutdown: shutdown,
-	enableTooBusy: enableTooBusy
+	enableTooBusy: enableTooBusy,
+	gracefulShutdownKeepaliveConnections: gracefulShutdownKeepaliveConnections
 };

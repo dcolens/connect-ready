@@ -56,7 +56,6 @@ describe("ready", function() {
 	});
 
 	describe('route', function() {
-
 		it('returns the status', function(done) {
 			ready.setStatus(200);
 			ready.route({}, {sendStatus:function(code) {
@@ -194,4 +193,33 @@ describe("ready", function() {
 			ready.shutdown(undefined, undefined, done, '/not a valid path/termination-log', undefined);
 		});			
 	});
+
+	describe('gracefulShutdownKeepaliveConnections', function() {
+
+		it('sets "connection: close" header if stopping', function(done) {
+			delete require.cache[require.resolve('../index.js')];
+			ready = require('../index.js');
+			ready.shutdown('SIGTERM');
+
+			var res = {
+				set: function(name, value) {
+					assert.equal(name.toLowerCase(), 'connection');
+					assert.equal(value.toLowerCase(), 'close');
+				}
+			}
+			ready.gracefulShutdownKeepaliveConnections({}, res, done);
+		});
+
+		it('calls next if not stopping', function(done) {
+			delete require.cache[require.resolve('../index.js')];
+			ready = require('../index.js');
+
+			var res = {
+				set: function(header) {
+					throw new Error('should not call res.set');
+				}
+			}
+			ready.gracefulShutdownKeepaliveConnections({}, res, done);
+		});
+	});	
 });
