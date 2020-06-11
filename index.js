@@ -1,17 +1,17 @@
-'use strict';
-var fs = require('fs');
+"use strict";
+var fs = require("fs");
 
 var status = 500;
 var toobusy = false;
 var stopping = false;
 
 function setStatus(code) {
-	if (!Number.isInteger(code) || (code<1) || (code>999)) {
-		var e = new Error('status should be an integer between 1 and 999');
+	if (!Number.isInteger(code) || code < 1 || code > 999) {
+		var e = new Error("status should be an integer between 1 and 999");
 		e.status = code;
 		throw e;
-  }   
-  status = code;
+	}
+	status = code;
 }
 
 function getStatus() {
@@ -34,22 +34,22 @@ function route(req, res) {
  */
 function gracefulShutdownKeepaliveConnections(req, res, next) {
 	if (stopping === true) {
-		res.set('Connection', 'close');
+		res.set("Connection", "close");
 	}
 	next();
 }
 
 function enableTooBusy(lag) {
-	if (typeof(lag) === 'undefined') {
+	if (typeof lag === "undefined") {
 		lag = 70;
 	}
-	if (!Number.isInteger(lag) || lag<10) {
-		var e = new Error('lag should be an integer greater than 10');
+	if (!Number.isInteger(lag) || lag < 10) {
+		var e = new Error("lag should be an integer greater than 10");
 		e.lag = lag;
 		throw e;
-  }
- 	toobusy = require('toobusy-js');
- 	toobusy.maxLag(lag);
+	}
+	toobusy = require("toobusy-js");
+	toobusy.maxLag(lag);
 }
 
 /**
@@ -61,13 +61,28 @@ function shutdown(signal, error, cb, terminationFile, logger) {
 	status = 503;
 	var reason;
 	if (error) {
-		if (logger && logger.fatal) { logger.fatal({GELF:true, signal: signal, stack: error.stack}, error.message); }
-		reason = signal + '\n' + error.message + '\n' + error.stack;
+		if (logger && logger.fatal) {
+			let uError = {};
+			const errorKeys = Object.keys(error);
+			for (let index = 0; index < errorKeys.length; index++) {
+				const key = errorKeys[index];
+				uError[`_${key}`] = error[key];
+			}
+			logger.fatal(
+				{ GELF: true, _signal: signal, _stack: error.stack, ...uError },
+				error.message
+			);
+		}
+		reason = `${signal}\n${error.message}\n${error.stack}`;
 	} else {
-		if (logger && logger.info) { logger.info({GELF:true, signal:signal}, 'shutdown'); }
+		if (logger && logger.info) {
+			logger.info({ GELF: true, _signal: signal }, "shutdown");
+		}
 		reason = shutdown;
 	}
-	if (stopping === true) { return; }
+	if (stopping === true) {
+		return;
+	}
 	stopping = true;
 
 	function callback() {
@@ -75,10 +90,12 @@ function shutdown(signal, error, cb, terminationFile, logger) {
 			return cb(signal ? 1 : 0);
 		}
 	}
-	
+
 	if (terminationFile) {
-		fs.writeFile(terminationFile, reason, function(err) {
-			if (err) { console.error(err); }
+		fs.writeFile(terminationFile, reason, function (err) {
+			if (err) {
+				console.error(err);
+			}
 			callback();
 		});
 	} else {
@@ -92,5 +109,5 @@ module.exports = {
 	route: route,
 	shutdown: shutdown,
 	enableTooBusy: enableTooBusy,
-	gracefulShutdownKeepaliveConnections: gracefulShutdownKeepaliveConnections
+	gracefulShutdownKeepaliveConnections: gracefulShutdownKeepaliveConnections,
 };
