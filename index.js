@@ -78,7 +78,7 @@ function shutdown(signal, error, cb, terminationFile, logger) {
 		if (logger && logger.info) {
 			logger.info({ GELF: true, _signal: signal }, "shutdown");
 		}
-		reason = shutdown;
+		reason = "shutdown";
 	}
 	if (stopping === true) {
 		return;
