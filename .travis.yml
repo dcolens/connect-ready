@@ -1,7 +1,7 @@
 language: node_js
 node_js:
-  - '12.18.3'
-  - '14.7.0'
+  - '14.16.0'
+  - '15.3.0'
 sudo: false
-script: 'npm run-script cover'
+script: 'npm run-script test:cover'
 after_script: 'cat ./coverage/lcov.info | coveralls'

@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "mocha test",
-    "cover": "nyc --all --reporter=lcov --reporter=text-summary npm run test",
+    "test:cover": "c8 --reporter=lcov --reporter=text npm test",
     "lint": "eslint *.js"
   },
   "repository": {
@@ -25,15 +25,17 @@
   "homepage": "https://github.com/dcolens/connect-ready#readme",
   "devDependencies": {
     "coveralls": "^3.1.0",
-    "eslint": "^7.6.0",
-    "eslint-config-prettier": "^6.11.0",
-    "eslint-plugin-prettier": "^3.1.4",
-    "mocha": "^8.1.1",
-    "nyc": "^15.1.0",
-    "prettier": "^2.0.5",
+    "eslint": "^7.23.0",
+    "eslint-config-prettier": "^8.1.0",
+    "eslint-plugin-prettier": "^3.3.1",
+    "mocha": "^8.3.2",
+    "prettier": "^2.2.1",
     "toobusy-js": "^0.5.1"
   },
   "optionalDependencies": {
     "toobusy-js": "^0.5.1"
+  },
+  "dependencies": {
+    "c8": "^7.7.0"
   }
 }
