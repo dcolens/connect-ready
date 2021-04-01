@@ -1,6 +1,7 @@
-[![Build Status](https://travis-ci.org/dcolens/connect-ready.svg?branch=master)](https://travis-ci.org/dcolens/connect-ready) [![Build Status](https://travis-ci.org/dcolens/connect-ready.svg?branch=master)](https://travis-ci.org/dcolens/connect-ready)
-
 # connect-ready
+
+[![Build Status](https://travis-ci.org/dcolens/connect-ready.svg?branch=master)](https://travis-ci.org/dcolens/connect-ready) [![Coverage Status](https://coveralls.io/repos/github/dcolens/connect-ready/badge.svg?branch=master)](https://coveralls.io/github/dcolens/connect-ready?branch=master)
+
 express route that indicates whether a service is ready or not. Mostly created to make graceful restart of node express servers in a Kubernetes environment.
 
 
@@ -68,7 +69,7 @@ Another use of the readinessProbe can be to indicate if the server is too busy, 
 
 ### Usage
 
-   1. npm install toobusy-js 
+   1. npm install toobusy-js
    2. enable toobusy in connect-ready:
     ```javascript
     ready.enableTooBusy(70)
