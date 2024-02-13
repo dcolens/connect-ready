@@ -3,6 +3,7 @@
   "version": "1.0.13",
   "description": "express route that indicates whether a service is ready or not",
   "main": "index.js",
+  "types": "index.d.ts",
   "scripts": {
     "test": "mocha test",
     "test:cover": "c8 --reporter=lcov --reporter=text npm test",
