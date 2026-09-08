@@ -43,46 +43,50 @@ ready.setStatus(503);
 
 Modern Kubernetes marks a terminating Pod endpoint as not ready. The application must still stop accepting new connections and allow active requests to finish.
 
-Node.js 22 `server.close()` stops accepting new connections, closes idle keep-alive connections, and waits for active HTTP requests to complete. Handle normal termination separately from application failures so a rolling update exits successfully.
+`registerShutdownHandlers()` installs a consistent lifecycle for Node HTTP servers:
+
+- `SIGTERM` and `SIGINT` drain active requests and exit `0`;
+- `uncaughtException` and `unhandledRejection` attempt bounded cleanup and exit `1`;
+- readiness changes to `503` as soon as shutdown starts;
+- `server.close()` immediately stops new connections and drains active requests;
+- the process force-closes HTTP connections and exits `1` if its deadline expires.
 
 ```javascript
-'use strict';
+const shutdown = ready.registerShutdownHandlers(server, {
+  // Keep this below the Pod's terminationGracePeriodSeconds.
+  timeoutMs: Number.parseInt(process.env.SHUTDOWN_TIMEOUT_MS ?? '30000', 10),
 
-const shutdownTimeout = Number.parseInt(process.env.SHUTDOWN_TIMEOUT_MS ?? '30000', 10);
-let shuttingDown = false;
+  // Fatal process errors should not drain for as long as a normal rollout.
+  fatalTimeoutMs: 30_000,
 
-function shutdown() {
-  if (shuttingDown) return;
-  shuttingDown = true;
-  ready.setStatus(503);
+  async cleanup() {
+    await database.close();
+    await log4js.shutdown();
+  },
 
-  const forceShutdown = setTimeout(() => {
-    server.closeAllConnections();
-    process.exit(1);
-  }, shutdownTimeout);
-  forceShutdown.unref();
+  onFatal(error, origin) {
+    logger.fatal({ error, origin }, 'Fatal process error');
+  },
 
-  server.close(error => {
-    clearTimeout(forceShutdown);
-
-    if (error) {
-      process.exit(1);
-      return;
-    }
-
-    process.exit(0);
-  });
-}
-
-process.once('SIGTERM', shutdown);
-process.once('SIGINT', shutdown);
+  // Optional: server.closeAllConnections() does not close upgraded protocols.
+  forceClose() {
+    webSocketServer.close();
+  },
+});
 ```
 
-Set `SHUTDOWN_TIMEOUT_MS` slightly below the Pod's `terminationGracePeriodSeconds`. The Kubernetes grace period must be long enough for the longest active request plus application cleanup and a safety margin.
+Node.js 22 `server.close()` stops accepting new connections, closes idle keep-alive connections, and waits for active HTTP requests to complete. Dependencies are cleaned up after those requests drain.
 
-Close databases, message brokers, and other dependencies only after active requests have drained. Track upgraded protocols such as WebSockets separately because they are not ordinary HTTP requests.
+Set `timeoutMs` slightly below the Pod's `terminationGracePeriodSeconds`. The Kubernetes grace period must be long enough for the longest active request plus dependency cleanup and a safety margin. Applications with requests lasting up to 45 minutes should configure both deadlines accordingly.
 
-Treat fatal process errors separately from normal Kubernetes termination and exit non-zero after performing bounded cleanup.
+An uncaught exception can leave application state inconsistent, so `fatalTimeoutMs` defaults to the smaller of 30 seconds and `timeoutMs`. Fatal shutdown still attempts to drain and clean up, but it must exit non-zero within that shorter deadline.
+
+A controller can also initiate shutdown or remove its process listeners explicitly:
+
+```javascript
+shutdown.close();   // Start a normal programmatic shutdown.
+shutdown.dispose(); // Or unregister the handlers if another component takes ownership.
+```
 
 ## API
 
@@ -97,3 +101,22 @@ Returns the current readiness HTTP status.
 ### `route(req, res)`
 
 Express/Connect route that responds with the current readiness status.
+
+### `registerShutdownHandlers(server, options)`
+
+Registers handlers for normal process signals and fatal process events. Returns a shutdown controller.
+
+Options:
+
+- `timeoutMs`: normal shutdown deadline; defaults to 30 seconds.
+- `fatalTimeoutMs`: fatal-error deadline; defaults to at most 30 seconds.
+- `cleanup(context)`: async dependency cleanup after HTTP requests drain.
+- `onFatal(error, origin)`: fatal-error reporting hook.
+- `forceClose(context)`: closes upgraded or custom connections at the deadline.
+
+The controller provides:
+
+- `close()`: starts a normal programmatic shutdown.
+- `shutdown(request)`: starts shutdown with an explicit reason or error.
+- `dispose()`: unregisters the installed process handlers.
+- `isShuttingDown`: indicates whether shutdown has started.

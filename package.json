@@ -1,7 +1,7 @@
 {
   "name": "connect-ready",
   "version": "2.0.0",
-  "description": "express route that indicates whether a service is ready or not",
+  "description": "Kubernetes readiness and graceful shutdown for Node.js HTTP services",
   "main": "index.js",
   "types": "index.d.ts",
   "files": [
