@@ -1,6 +1,6 @@
 {
   "name": "connect-ready",
-  "version": "1.0.14",
+  "version": "2.0.0",
   "description": "Kubernetes readiness and graceful shutdown for Node.js HTTP services",
   "main": "index.js",
   "types": "index.d.ts",
