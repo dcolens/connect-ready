@@ -1,113 +1,42 @@
-"use strict";
-var fs = require("fs");
+'use strict';
 
-var status = 500;
-var toobusy = false;
-var stopping = false;
+let status = 503;
 
+/**
+ * Set the HTTP status returned by the readiness route.
+ *
+ * Kubernetes considers responses from 200 through 399 successful.
+ *
+ * @param {number} code HTTP status code
+ */
 function setStatus(code) {
-	if (!Number.isInteger(code) || code < 1 || code > 999) {
-		var e = new Error("status should be an integer between 1 and 999");
-		e.status = code;
-		throw e;
-	}
-	status = code;
+  if (!Number.isInteger(code) || code < 100 || code > 599) {
+    const error = new Error('status should be an integer between 100 and 599');
+    error.status = code;
+    throw error;
+  }
+
+  status = code;
 }
 
+/**
+ * Return the status currently exposed by the readiness route.
+ *
+ * @returns {number} HTTP status code
+ */
 function getStatus() {
-	return status;
+  return status;
 }
 
 /**
- * returns 503 if server is toobusy, status (as defined by setStatus) otherwise.
+ * Express/Connect readiness route.
  */
-function route(req, res) {
-	if (toobusy && toobusy()) {
-		res.sendStatus(503).end();
-	} else {
-		res.sendStatus(status).end();
-	}
-}
-
-/**
- * adds a `Connection: close` to all responses if app.get('stopping') is true.
- */
-function gracefulShutdownKeepaliveConnections(req, res, next) {
-	if (stopping === true) {
-		res.set("Connection", "close");
-	}
-	next();
-}
-
-function enableTooBusy(lag) {
-	if (typeof lag === "undefined") {
-		lag = 70;
-	}
-	if (!Number.isInteger(lag) || lag < 10) {
-		var e = new Error("lag should be an integer greater than 10");
-		e.lag = lag;
-		throw e;
-	}
-	toobusy = require("toobusy-js");
-	toobusy.maxLag(lag);
-}
-
-/**
- * - logs shutdown to graylog (if log4js logger provided).
- * - sets `stopping` to true.
- * - dumps error in terminationFile if provided.
- */
-function shutdown(signal, error, cb, terminationFile, logger) {
-	status = 503;
-	var reason;
-	if (error) {
-		if (logger && logger.fatal) {
-			let uError = {};
-			const errorKeys = Object.keys(error);
-			for (let index = 0; index < errorKeys.length; index++) {
-				const key = errorKeys[index];
-				uError[`_${key}`] = error[key];
-			}
-			logger.fatal(
-				{ GELF: true, _signal: signal, _stack: error.stack, ...uError },
-				error.message
-			);
-		}
-		reason = `${signal}\n${error.message}\n${error.stack}`;
-	} else {
-		if (logger && logger.info) {
-			logger.info({ GELF: true, _signal: signal }, "shutdown");
-		}
-		reason = "shutdown";
-	}
-	if (stopping === true) {
-		return;
-	}
-	stopping = true;
-
-	function callback() {
-		if (cb) {
-			return cb(signal ? 1 : 0);
-		}
-	}
-
-	if (terminationFile) {
-		fs.writeFile(terminationFile, reason, function (err) {
-			if (err) {
-				console.error(err);
-			}
-			callback();
-		});
-	} else {
-		callback();
-	}
+function route(_req, res) {
+  res.sendStatus(status);
 }
 
 module.exports = {
-	setStatus: setStatus,
-	getStatus: getStatus,
-	route: route,
-	shutdown: shutdown,
-	enableTooBusy: enableTooBusy,
-	gracefulShutdownKeepaliveConnections: gracefulShutdownKeepaliveConnections,
+  setStatus,
+  getStatus,
+  route,
 };

@@ -1,77 +1,99 @@
 # connect-ready
 
-[![Build Status](https://travis-ci.org/dcolens/connect-ready.svg?branch=master)](https://travis-ci.org/dcolens/connect-ready) [![Coverage Status](https://coveralls.io/repos/github/dcolens/connect-ready/badge.svg?branch=master)](https://coveralls.io/github/dcolens/connect-ready?branch=master)
+Express/Connect readiness route for Kubernetes applications.
 
-express route that indicates whether a service is ready or not. Mostly created to make graceful restart of node express servers in a Kubernetes environment.
+## Requirements
 
+- Node.js 22 or newer
 
-## Graceful restart of a nodejs express server in Kubernetes
+## Installation
 
-I intially thought that catching SIGTERM and waiting for server.close()` to finish would be enough to do a graceful restart of a nodejs service. I was wrong. 
+```shell
+npm install connect-ready
+```
 
-The reliable way of handling a graceful restart is to use the [readynessProbe](http://kubernetes.io/docs/user-guide/production-pods/#liveness-and-readiness-probes-aka-health-checks) functionality either with a [pre-stop hook](http://kubernetes.io/docs/user-guide/container-environment/#container-hooks) or when catching the SIGTERM signal. The readynessProbes are used by Kubernetes to know if a service is ready and can receive traffic, in its http form Kubernetes checks for the responseCode, anything above 399 is considered not ready. 
+## Readiness route
 
-When a service receives a stop signal (SIGTERM), it should respond with a 500 responsecode when probed for readiness, this will ensure Kubernetes does not send load to it anymore. Once that's done, `server.close()` can be called to ensure ongoing connections are terminated gracefully.
-
-Note that by default Kubernetes will send a SIGKILL 30s after the SIGTERM if the service did not terminate, this timer is configurable in the manifest. 
-
-
-## Example of a graceful node http server for Kubernetes
+The route returns `503` until the application explicitly becomes ready.
 
 ```javascript
 'use strict';
-var http = require('http');
-var express = require('express');
-var ready = require('connect-ready');
 
-var app = express();
-var server = http.createServer(app);
+const http = require('node:http');
+const express = require('express');
+const ready = require('connect-ready');
 
+const app = express();
+const server = http.createServer(app);
 
 app.get('/ready', ready.route);
 
-/**
- * adds a `Connection: close` to all responses stopping.
- */
-app.use(ready.gracefulShutdownKeepaliveConnections);
-
-server.listen(3000, function () { 
-    ready.setStatus(204);
-  console.log('Example app listening on port 3000!');
-});
-
-
-//add graceful shutdown
-process.on('SIGTERM', function () {
-    ready.setStatus(500);
-    console.log('received SIGTERM');
- 
-     /** 
-      * delay the server closure by 2s to give kubernetes time to 
-      * know the service is not ready and direct the traffic somewhere else. 
-      * Instead of listening for SIGTERM, one could also configure a 
-      * pre-stop hook in the kubernetes manifest. 
-      */
-    setTimeout(function() { 
-        server.close(function() {
-            console.log('all connections closed');
-            process.exit(0);
-        });     
-    }, 2000);
+server.listen(3000, () => {
+  ready.setStatus(204);
 });
 ```
 
-## toobusy option
+Kubernetes considers HTTP responses from 200 through 399 successful. Use a failure status such as `503` whenever the application cannot accept traffic:
 
-Another use of the readinessProbe can be to indicate if the server is too busy, connect-ready can use the [toobusy-js](https://github.com/STRML/node-toobusy) module to indicate whether the server is too busy and deflect load to another pod.
+```javascript
+ready.setStatus(503);
+```
 
-**The toobusy-js module should be installed to use this functionality, it is not bundled in connect-ready.**
+## Graceful shutdown in Kubernetes
 
-### Usage
+Modern Kubernetes marks a terminating Pod endpoint as not ready. The application must still stop accepting new connections and allow active requests to finish.
 
-   1. npm install toobusy-js
-   2. enable toobusy in connect-ready:
-    ```javascript
-    ready.enableTooBusy(70)
-    ```
-    Where 70 is the lag as defined in [toobusy-js](https://github.com/STRML/node-toobusy)
+Node.js 22 `server.close()` stops accepting new connections, closes idle keep-alive connections, and waits for active HTTP requests to complete. Handle normal termination separately from application failures so a rolling update exits successfully.
+
+```javascript
+'use strict';
+
+const shutdownTimeout = Number.parseInt(process.env.SHUTDOWN_TIMEOUT_MS ?? '30000', 10);
+let shuttingDown = false;
+
+function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  ready.setStatus(503);
+
+  const forceShutdown = setTimeout(() => {
+    server.closeAllConnections();
+    process.exit(1);
+  }, shutdownTimeout);
+  forceShutdown.unref();
+
+  server.close(error => {
+    clearTimeout(forceShutdown);
+
+    if (error) {
+      process.exit(1);
+      return;
+    }
+
+    process.exit(0);
+  });
+}
+
+process.once('SIGTERM', shutdown);
+process.once('SIGINT', shutdown);
+```
+
+Set `SHUTDOWN_TIMEOUT_MS` slightly below the Pod's `terminationGracePeriodSeconds`. The Kubernetes grace period must be long enough for the longest active request plus application cleanup and a safety margin.
+
+Close databases, message brokers, and other dependencies only after active requests have drained. Track upgraded protocols such as WebSockets separately because they are not ordinary HTTP requests.
+
+Treat fatal process errors separately from normal Kubernetes termination and exit non-zero after performing bounded cleanup.
+
+## API
+
+### `setStatus(code)`
+
+Sets the readiness HTTP status. The code must be an integer from 100 through 599.
+
+### `getStatus()`
+
+Returns the current readiness HTTP status.
+
+### `route(req, res)`
+
+Express/Connect route that responds with the current readiness status.
